@@ -171,8 +171,21 @@ class ADKAgentExecutor(AgentExecutor):
             if event.is_final_response():
                 response = convert_genai_parts_to_a2a(event.content.parts)
                 logger.debug('Yielding final response: %s', response)
+                await task_updater.update_status(
+                            TaskState.working,
+                            message=task_updater.new_agent_message(
+                                [
+                                    Part(
+                                        root=TextPart(
+                                            text='Messaging the calendar agent'
+                                        )
+                                    )
+                                ]
+                            ),
+                        )
+                await asyncio.sleep(2)
                 await task_updater.add_artifact(response)
-                await task_updater.complete()
+                #await task_updater.complete()
                 break
             if calls := event.get_function_calls():
                 for call in calls:
@@ -248,8 +261,8 @@ class ADKAgentExecutor(AgentExecutor):
         )
 
     async def cancel(self, context: RequestContext, event_queue: EventQueue):
-        # Ideally: kill any ongoing tasks.
-        raise ServerError(error=UnsupportedOperationError())
+        task_updater = TaskUpdater(event_queue, context.task_id, context.context_id)
+        await task_updater.cancel()
 
     async def _upsert_session(self, session_id: str):
         return await self.runner.session_service.get_session(
